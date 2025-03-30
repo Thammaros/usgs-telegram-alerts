@@ -1,8 +1,9 @@
 import os
 from config import Config
+from typing import Set
 
 
-def read_last_event_id() -> str:
+def read_last_event_id() -> Set[str]:
     if not os.path.exists(Config.LAST_EVENT_FILE):
         return set()
     with open(Config.LAST_EVENT_FILE, "r") as f:
