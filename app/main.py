@@ -16,46 +16,29 @@ def format_message(props, coords, quake_time, distance_km) -> str:
     mag = props.get("mag", "N/A")
     mag_type = props.get("magType", "N/A")
     place = props.get("place", "Unknown location")
-    event_type = props.get("type", "unknown")
-    status = props.get("status", "unknown")
-    tsunami = "🌊 Yes" if props.get("tsunami", 0) == 1 else "No"
-    alert = props.get("alert", "None")
-    felt = props.get("felt", "N/A")
+    alert = props.get("alert", "N/A").capitalize()
+    tsunami = "มีความเสี่ยง" if props.get("tsunami", 0) == 1 else "ไม่มี"
     cdi = props.get("cdi", "N/A")
     mmi = props.get("mmi", "N/A")
-    sig = props.get("sig", "N/A")
-    gap = props.get("gap", "N/A")
     url = props.get("url", "N/A")
-    products = ", ".join(props.get("types", "").split(","))
     net = props.get("net", "N/A")
-    code = props.get("code", "N/A")
-    ids = props.get("ids", "N/A")
     sources = props.get("sources", "N/A")
-    dmin = props.get("dmin", "N/A")
-    rms = props.get("rms", "N/A")
-    nst = props.get("nst", "N/A")
 
     return f"""
-📍 ตำแหน่ง: {place}
-📏 ระยะทางจากกรุงเทพฯ: {distance_km:.2f} กม.
-📅 เวลาในท้องถิ่น: {quake_time}
-💥 ขนาดแผ่นดินไหว: M{mag} ({mag_type}) - {"W-phase" if mag_type == "mww" else "Body-wave"}
-📏 ความลึก: {depth} กม.
-🌀 ประเภทเหตุการณ์: {event_type}
-✅ สถานะ: {status}
-🌊 การแจ้งเตือนสึนามิ: {tsunami}
-🚨 ระดับการเตือนภัย (PAGER): {alert}
-👥 รายงานความรู้สึก: {felt} คน
-📈 CDI (ระดับการสั่นที่รู้สึกได้): {cdi} | 📉 MMI (ระดับแรงสั่นสะเทือน): {mmi}
-🎯 คะแนนความสำคัญ (Significance): {sig}
-🧭 ช่องว่างเชิงมุม (Azimuthal Gap): {gap}°
-📡 เครือข่ายวัดแผ่นดินไหว: {net}
-🌐 แหล่งข้อมูล: {sources}
-📍 ระยะทางน้อยที่สุดจากสถานีวัด: {dmin}°
-📊 ค่าความคลาดเคลื่อน RMS: {rms} วินาที
-📡 จำนวนสถานีที่ใช้: {nst}
-🔗 ข้อมูลเพิ่มเติม: {url}
-"""
+        📌 <b>แผ่นดินไหวใกล้: {place}</b>
+        📏 <b>ห่างจากกรุงเทพฯประมาณ:</b> {distance_km:.2f} กม.
+        🕒 <b>เวลา:</b> {quake_time}
+        🌍 <b>ขนาด:</b> M{mag} ({mag_type})
+        📉 <b>ความลึก:</b> {depth} กม.
+        📈 <b>ระดับแรงสั่น:</b> CDI: {cdi}, MMI: {mmi}
+
+        🚨 <b>ระดับการแจ้งเตือน (PAGER):</b> {alert}
+        🌊 <b>สึนามิ:</b> {tsunami}
+
+        📡 <b>เครือข่าย:</b> {net}
+        🛰️ <b>แหล่งข้อมูล:</b> {sources}
+        🔎 <b>ข้อมูลเพิ่มเติม:</b> <a href="{url}">ดูรายละเอียดจาก USGS</a>
+        """
 
 
 def handle_new_earthquake(
@@ -116,4 +99,5 @@ def monitor_loop():
 
 
 if __name__ == "__main__":
+    logger.info("Starting USGS Earthquake Monitoring Service...")
     monitor_loop()
