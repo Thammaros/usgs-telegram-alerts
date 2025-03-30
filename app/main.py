@@ -41,14 +41,8 @@ def format_message(props, coords, quake_time, distance_km) -> str:
         """
 
 
-def handle_new_earthquake(
-    api: USGSEarthquakeAPI, bot: TelegramBot, quake, last_event_id: str
-) -> str:
+def handle_new_earthquake(api: USGSEarthquakeAPI, bot: TelegramBot, quake) -> None:
     event_id = quake["id"]
-
-    if event_id == last_event_id:
-        logger.info("No new event.")
-        return last_event_id
 
     props = quake["properties"]
     coords = quake["geometry"]["coordinates"]
@@ -61,22 +55,17 @@ def handle_new_earthquake(
         (Config.BANGKOK_LAT, Config.BANGKOK_LON), (quake_lat, quake_lon)
     ).km
 
-    # If too far, skip alert
     if distance_km > 2500:
-        logger.info(
-            f"Earthquake too far ({distance_km:.2f} km > 2500 km). Skipping alert."
-        )
-        return last_event_id
+        logger.info(f"🌐 Skipping distant event ({distance_km:.2f} km)")
+        return
 
-    # Format and send alert
+    # Format and send
     message = format_message(props, coords, quake_time, distance_km)
-    logger.info("New earthquake detected within 2500 km.")
+    logger.info(f"📡 New earthquake within 2500 km: {place} ({distance_km:.2f} km)")
     image_path = generate_cartopy_map(quake_lat, quake_lon, place, distance_km)
     bot.send_photo(image_path)
     bot.send_message(message)
     save_last_event_id(event_id)
-
-    return event_id
 
 
 def monitor_loop():
@@ -87,15 +76,19 @@ def monitor_loop():
         return
 
     api = USGSEarthquakeAPI()
-    last_event_id = read_last_event_id()
+    notified_event_ids = read_last_event_id()
 
     while True:
         try:
-            result = api.query(minmagnitude=5, orderby="time", limit=1)
+            result = api.query(minmagnitude=5, orderby="time", limit=10)
 
             if result.get("features"):
-                quake = result["features"][0]
-                last_event_id = handle_new_earthquake(api, bot, quake, last_event_id)
+                for quake in result["features"]:
+                    event_id = quake["id"]
+                    if event_id in notified_event_ids:
+                        continue
+                    handle_new_earthquake(api, bot, quake)
+                    notified_event_ids.add(event_id)
             else:
                 logger.warning("No earthquake data found.")
 
