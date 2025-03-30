@@ -7,21 +7,8 @@ from storage import (
 from usgs_api import USGSEarthquakeAPI
 from telegram import TelegramBot
 from logger import logger
-from math import radians, cos, sin, asin, sqrt
+from geopy.distance import geodesic
 from mapgen import generate_cartopy_map
-
-
-def calculate_distance_km(lat1, lon1, lat2, lon2) -> float:
-    R = 6371.0  # Earth radius in km
-    dlat = radians(lat2 - lat1)
-    dlon = radians(lon2 - lon1)
-
-    a = (
-        sin(dlat / 2) ** 2
-        + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
-    )
-    c = 2 * asin(sqrt(a))
-    return round(R * c, 2)
 
 
 def format_message(props, coords, quake_time, distance_km) -> str:
@@ -50,7 +37,7 @@ def format_message(props, coords, quake_time, distance_km) -> str:
 
     return f"""
 📍 ตำแหน่ง: {place}
-📏 ระยะทางจากกรุงเทพฯ: {distance_km} กม.
+📏 ระยะทางจากกรุงเทพฯ: {distance_km:.2f} กม.
 📅 เวลาในท้องถิ่น: {quake_time}
 💥 ขนาดแผ่นดินไหว: M{mag} ({mag_type}) - {"W-phase" if mag_type == "mww" else "Body-wave"}
 📏 ความลึก: {depth} กม.
@@ -85,9 +72,11 @@ def handle_new_earthquake(
     quake_lat, quake_lon = coords[1], coords[0]
     place = props.get("place", "Unknown location")
     quake_time = api.format_quake_time(props["time"])
-    distance_km = calculate_distance_km(
-        Config.BANGKOK_LAT, Config.BANGKOK_LON, quake_lat, quake_lon
-    )
+
+    # Use geodesic distance
+    distance_km = geodesic(
+        (Config.BANGKOK_LAT, Config.BANGKOK_LON), (quake_lat, quake_lon)
+    ).km
 
     message = format_message(props, coords, quake_time, distance_km)
 
