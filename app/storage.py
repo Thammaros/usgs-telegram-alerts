@@ -3,15 +3,15 @@ from config import Config
 
 
 def read_last_event_id() -> str:
-    if os.path.exists(Config.LAST_EVENT_FILE):
-        with open(Config.LAST_EVENT_FILE, "r") as file:
-            return file.read().strip()
-    return ""
+    if not os.path.exists(Config.LAST_EVENT_FILE):
+        return set()
+    with open(Config.LAST_EVENT_FILE, "r") as f:
+        return set(line.strip() for line in f if line.strip())
 
 
 def save_last_event_id(event_id: str) -> None:
-    with open(Config.LAST_EVENT_FILE, "w") as file:
-        file.write(event_id)
+    with open(Config.LAST_EVENT_FILE, "a") as file:
+        file.write(f"{event_id}\n")
 
 
 def read_cached_chat_id() -> int | None:
