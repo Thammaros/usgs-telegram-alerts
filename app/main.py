@@ -43,29 +43,38 @@ def format_message(props, coords, quake_time, distance_km) -> str:
 
 def handle_new_earthquake(api: USGSEarthquakeAPI, bot: TelegramBot, quake) -> None:
     event_id = quake["id"]
-
     props = quake["properties"]
     coords = quake["geometry"]["coordinates"]
     quake_lat, quake_lon = coords[1], coords[0]
     place = props.get("place", "Unknown location")
     quake_time = api.format_quake_time(props["time"])
 
+    logger.info(f"Processing earthquake event ID: {event_id}")
+    logger.debug(f"Coordinates: latitude={quake_lat}, longitude={quake_lon}")
+    logger.debug(f"Location description: {place}")
+    logger.debug(f"Event time (local): {quake_time}")
+
     # Calculate distance
     distance_km = geodesic(
         (Config.BANGKOK_LAT, Config.BANGKOK_LON), (quake_lat, quake_lon)
     ).km
+    logger.debug(f"Distance from Bangkok: {distance_km:.2f} km")
 
     if distance_km > 2500:
-        logger.info(f"🌐 Skipping distant event ({distance_km:.2f} km)")
+        logger.info(
+            f"Event is outside the 2500 km radius ({distance_km:.2f} km). Notification skipped."
+        )
         return
 
-    # Format and send
-    message = format_message(props, coords, quake_time, distance_km)
-    logger.info(f"📡 New earthquake within 2500 km: {place} ({distance_km:.2f} km)")
+    # Format and send alert
+    logger.info(
+        f"Sending notification for earthquake near: {place} ({distance_km:.2f} km from Bangkok)"
+    )
     image_path = generate_cartopy_map(quake_lat, quake_lon, place, distance_km)
     bot.send_photo(image_path)
-    bot.send_message(message)
+    bot.send_message(format_message(props, coords, quake_time, distance_km))
     save_last_event_id(event_id)
+    logger.info(f"Event ID {event_id} saved to notified events.")
 
 
 def monitor_loop():
@@ -73,31 +82,45 @@ def monitor_loop():
     chat_id = bot.load_or_fetch_chat_id()
 
     if not chat_id:
+        logger.warning(
+            "Chat ID not found. Please ensure the bot has been contacted at least once."
+        )
         return
 
     api = USGSEarthquakeAPI()
     notified_event_ids = read_last_event_id()
-
     while True:
         try:
+            logger.debug("Polling USGS Earthquake API for recent events...")
             result = api.query(minmagnitude=5, orderby="time", limit=10)
 
             if result.get("features"):
+                logger.debug(f"{len(result['features'])} earthquake events received.")
                 for quake in result["features"]:
                     event_id = quake["id"]
+
                     if event_id in notified_event_ids:
+                        logger.debug(
+                            f"Event ID {event_id} has already been processed. Skipping."
+                        )
                         continue
                     handle_new_earthquake(api, bot, quake)
                     notified_event_ids.add(event_id)
             else:
-                logger.warning("No earthquake data found.")
+                logger.warning("No earthquake events found in API response.")
 
         except Exception as e:
-            logger.error(f"Exception occurred: {e}", exc_info=True)
+            logger.error(
+                "An exception occurred during earthquake monitoring loop.",
+                exc_info=True,
+            )
 
+        logger.debug(
+            f"Sleeping for {Config.FETCH_INTERVAL_SECONDS} seconds before next poll."
+        )
         time.sleep(Config.FETCH_INTERVAL_SECONDS)
 
 
 if __name__ == "__main__":
-    logger.info("Starting USGS Earthquake Monitoring Service...")
+    logger.info("USGS Earthquake Monitoring Service started.")
     monitor_loop()
