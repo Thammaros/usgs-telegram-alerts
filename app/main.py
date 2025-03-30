@@ -16,7 +16,7 @@ def format_message(props, coords, quake_time, distance_km) -> str:
     mag = props.get("mag", "N/A")
     mag_type = props.get("magType", "N/A")
     place = props.get("place", "Unknown location")
-    alert = props.get("alert", "N/A").capitalize()
+    alert = props.get("alert", "N/A")
     tsunami = "มีความเสี่ยง" if props.get("tsunami", 0) == 1 else "ไม่มี"
     cdi = props.get("cdi", "N/A")
     mmi = props.get("mmi", "N/A")
@@ -56,14 +56,21 @@ def handle_new_earthquake(
     place = props.get("place", "Unknown location")
     quake_time = api.format_quake_time(props["time"])
 
-    # Use geodesic distance
+    # Calculate distance
     distance_km = geodesic(
         (Config.BANGKOK_LAT, Config.BANGKOK_LON), (quake_lat, quake_lon)
     ).km
 
-    message = format_message(props, coords, quake_time, distance_km)
+    # If too far, skip alert
+    if distance_km > 2500:
+        logger.info(
+            f"Earthquake too far ({distance_km:.2f} km > 2500 km). Skipping alert."
+        )
+        return last_event_id
 
-    logger.info("New earthquake detected.")
+    # Format and send alert
+    message = format_message(props, coords, quake_time, distance_km)
+    logger.info("New earthquake detected within 2500 km.")
     image_path = generate_cartopy_map(quake_lat, quake_lon, place, distance_km)
     bot.send_photo(image_path)
     bot.send_message(message)
