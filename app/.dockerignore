@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+venv/
+env/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*.bak
+
+# Image outputs
+*.png
+
+# Local data files
+*.sqlite3
+*.db
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+
+# Editor-specific
+.vscode/
+.idea/
+
+# Cache
+*.egg-info
+.eggs/
+.cache/
+.mypy_cache/
+.pytest_cache/
+build/
+dist/

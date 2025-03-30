@@ -1,0 +1,24 @@
+x-common-config: &common-config
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: 1
+  restart: always
+  deploy:
+    resources:
+      limits:
+        memory: 128M
+        cpus: "0.5"
+
+services:
+  earthquake-alert:
+    <<: *common-config
+    build: ./app
+    container_name: usgs-telegram-alert
+    command: ["python3", "main.py"]
+    volumes:
+      - earthquake-alert-volume:/app
+
+volumes:
+  earthquake-alert-volume:
