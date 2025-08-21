@@ -115,7 +115,7 @@ async def monitor_loop():
 
             except Exception as e:
                 logger.error(
-                    "An exception occurred during earthquake monitoring loop.",
+                    f"An exception occurred during earthquake monitoring loop: {e}",
                     exc_info=True,
                 )
 

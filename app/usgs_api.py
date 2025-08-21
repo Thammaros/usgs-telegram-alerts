@@ -61,11 +61,11 @@ class USGSEarthquakeAPI:
             raise
 
         except httpx.ConnectError as e:
-            logger.error("❌ Connection error: Could not reach USGS API.")
+            logger.error(f"❌ Connection error: Could not reach USGS API. {e}")
             raise
 
         except httpx.ReadTimeout as e:
-            logger.error("⏱️ Request to USGS API timed out.")
+            logger.error(f"⏱️ Request to USGS API timed out. {e}")
             raise
 
         except httpx.RequestError as e:
