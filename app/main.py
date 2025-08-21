@@ -1,3 +1,4 @@
+# main.py
 import time
 from config import Config
 from storage import (
@@ -79,13 +80,7 @@ def handle_new_earthquake(api: USGSEarthquakeAPI, bot: TelegramBot, quake) -> No
 
 def monitor_loop():
     bot = TelegramBot(Config.TELEGRAM_BOT_TOKEN)
-    chat_id = bot.load_or_fetch_chat_id()
-
-    if not chat_id:
-        logger.warning(
-            "Chat ID not found. Please ensure the bot has been contacted at least once."
-        )
-        return
+    logger.info("Using TELEGRAM_CHAT_ID from environment.")
 
     api = USGSEarthquakeAPI()
     notified_event_ids = read_last_event_id()
