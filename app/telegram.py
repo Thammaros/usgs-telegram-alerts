@@ -1,10 +1,12 @@
-import requests
+# telegram.py
+import httpx
 from logger import logger
 from storage import read_cached_chat_id, save_cached_chat_id
 
 
 class TelegramBot:
     def __init__(self, token: str):
+        self.session = httpx.Client(timeout=10)
         self.token = token
         self.base_url = f"https://api.telegram.org/bot{self.token}"
         self.chat_id = None  # Automatically retrieved or loaded
@@ -21,7 +23,7 @@ class TelegramBot:
                 data = {"chat_id": self.chat_id}
                 if caption:
                     data["caption"] = caption
-                response = requests.post(url, files=files, data=data)
+                response = self.session.post(url, files=files, data=data)
                 response.raise_for_status()
                 logger.info("Image sent successfully via Telegram.")
         except Exception as e:
@@ -42,7 +44,7 @@ class TelegramBot:
                 "parse_mode": "HTML",
                 "disable_web_page_preview": True,
             }
-            response = requests.post(url, json=payload)
+            response = self.session.post(url, json=payload)
             response.raise_for_status()
             logger.info("Text message sent successfully via Telegram.")
         except Exception as e:
@@ -51,7 +53,7 @@ class TelegramBot:
     def get_updates(self, limit: int = 5) -> dict:
         try:
             url = f"{self.base_url}/getUpdates"
-            response = requests.get(url, params={"limit": limit})
+            response = self.session.get(url, params={"limit": limit})
             response.raise_for_status()
             updates = response.json()
             logger.info(
@@ -102,3 +104,9 @@ class TelegramBot:
             "Unable to obtain chat ID. Ensure the bot has received at least one message."
         )
         return None
+
+    def close(self) -> None:
+        try:
+            self.session.close()
+        except Exception:
+            pass

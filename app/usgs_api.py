@@ -1,4 +1,5 @@
-import requests
+# usgs_api.py
+import httpx
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Any, Dict
@@ -10,7 +11,7 @@ class USGSEarthquakeAPI:
     BASE_URL = "https://earthquake.usgs.gov/fdsnws/event/1/"
 
     def __init__(self):
-        self.session = requests.Session()
+        self.session = httpx.Client(http2=True, timeout=10)
         self.timezone = ZoneInfo(Config.TIMEZONE)
 
     def query(self, **params: Any) -> Dict:
@@ -18,25 +19,25 @@ class USGSEarthquakeAPI:
         url = f"{self.BASE_URL}query"
 
         try:
-            response = self.session.get(url, params=params, timeout=10)
+            response = self.session.get(url, params=params)
             self._handle_response(response)
             return response.json()
 
-        except requests.exceptions.HTTPError as e:
+        except httpx.HTTPStatusError as e:
             logger.error(
-                f"❌ HTTP error: {e.response.status_code} - {e.response.reason}"
+                f"❌ HTTP error: {e.response.status_code} - {e.response.reason_phrase}"
             )
             raise
 
-        except requests.exceptions.ConnectionError as e:
+        except httpx.ConnectError as e:
             logger.error("❌ Connection error: Could not reach USGS API.")
             raise
 
-        except requests.exceptions.Timeout as e:
+        except httpx.ReadTimeout as e:
             logger.error("⏱️ Request to USGS API timed out.")
             raise
 
-        except requests.exceptions.RequestException as e:
+        except httpx.RequestError as e:
             logger.error(f"❌ Unexpected error during API request: {e}")
             raise
 
@@ -44,10 +45,10 @@ class USGSEarthquakeAPI:
         dt_utc = datetime.fromtimestamp(quake_time_ms / 1000, tz=ZoneInfo("UTC"))
         return dt_utc.astimezone(self.timezone).strftime("%Y-%m-%d %H:%M:%S %Z")
 
-    def _handle_response(self, response: requests.Response) -> None:
+    def _handle_response(self, response: httpx.Response) -> None:
         try:
             response.raise_for_status()
-        except requests.exceptions.HTTPError as e:
+        except httpx.HTTPStatusError as e:
             status = response.status_code
             if status == 400:
                 raise ValueError("Bad request: Check your parameters.") from e
