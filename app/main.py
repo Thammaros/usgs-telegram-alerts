@@ -1,7 +1,6 @@
 # main.py
 import asyncio
 import uvloop
-from functools import partial
 from typing import Any, Dict
 from config import Config
 from storage import (

@@ -1,6 +1,5 @@
 # telegram.py
 import httpx
-import asyncio
 from logger import logger
 from config import Config
 
