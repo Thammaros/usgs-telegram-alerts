@@ -50,15 +50,15 @@ def handle_new_earthquake(api: USGSEarthquakeAPI, bot: TelegramBot, quake) -> No
     quake_time = api.format_quake_time(props["time"])
 
     logger.info(f"Processing earthquake event ID: {event_id}")
-    logger.debug(f"Coordinates: latitude={quake_lat}, longitude={quake_lon}")
-    logger.debug(f"Location description: {place}")
-    logger.debug(f"Event time (local): {quake_time}")
+    logger.info(f"Coordinates: latitude={quake_lat}, longitude={quake_lon}")
+    logger.info(f"Location description: {place}")
+    logger.info(f"Event time (local): {quake_time}")
 
     # Calculate distance
     distance_km = geodesic(
         (Config.BANGKOK_LAT, Config.BANGKOK_LON), (quake_lat, quake_lon)
     ).km
-    logger.debug(f"Distance from Bangkok: {distance_km:.2f} km")
+    logger.info(f"Distance from Bangkok: {distance_km:.2f} km")
 
     if distance_km > 2500:
         logger.info(
@@ -91,16 +91,16 @@ def monitor_loop():
     notified_event_ids = read_last_event_id()
     while True:
         try:
-            logger.debug("Polling USGS Earthquake API for recent events...")
-            result = api.query(minmagnitude=5, orderby="time", limit=10)
+            logger.info("Polling USGS Earthquake API for recent events...")
+            result = api.query(minmagnitude=4, orderby="time", limit=10)
 
             if result.get("features"):
-                logger.debug(f"{len(result['features'])} earthquake events received.")
+                logger.info(f"{len(result['features'])} earthquake events received.")
                 for quake in result["features"]:
                     event_id = quake["id"]
 
                     if event_id in notified_event_ids:
-                        logger.debug(
+                        logger.info(
                             f"Event ID {event_id} has already been processed. Skipping."
                         )
                         continue
@@ -115,7 +115,7 @@ def monitor_loop():
                 exc_info=True,
             )
 
-        logger.debug(
+        logger.info(
             f"Sleeping for {Config.FETCH_INTERVAL_SECONDS} seconds before next poll."
         )
         time.sleep(Config.FETCH_INTERVAL_SECONDS)
