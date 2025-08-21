@@ -1,107 +1,77 @@
-# USGS Telegram Earthquake Alert
-
-A lightweight, Dockerized Python service that monitors earthquake activity via the [USGS Earthquake API](https://earthquake.usgs.gov/) and sends real-time alerts (including maps) to Telegram when events occur within 2,500 km of Bangkok, Thailand and have a magnitude greater than 5.0.
+# USGS Telegram Earthquake Alert Service
 
 ---
 
-## Project Structure
+## Project Overview
 
-```
-.
-├── docker-compose.yaml     # Docker orchestration
-├── deploy.sh               # Optional script for deployment
-└── app/
-    ├── main.py             # Main monitoring loop
-    ├── config.py           # Configuration (API keys, constants)
-    ├── mapgen.py           # Cartopy-based map generator
-    ├── storage.py          # Read/write cache for event/chat ID
-    ├── telegram.py         # Telegram bot interface
-    ├── usgs_api.py         # USGS API integration
-    ├── logger.py           # Logging setup
-    ├── requirements.txt    # Python dependencies
-    └── Dockerfile          # Alpine-based build config
-```
+This project provides a lightweight, Dockerized Python service that continuously monitors earthquake activity worldwide using the [USGS Earthquake API](https://earthquake.usgs.gov/). When an earthquake event occurs within 2,500 km of Bangkok, Thailand, and meets the configured minimum magnitude (default ≥ 4.0), the service sends real-time alerts directly to a Telegram chat, including annotated map images for enhanced situational awareness.
+
+The service is designed for users who want timely earthquake notifications without manual monitoring, combining asynchronous programming for efficiency, geospatial visualization with Cartopy, and seamless Telegram bot integration. It is containerized for easy deployment and scalability.
 
 ---
 
-## Features
+## For Users
 
-- Periodically queries the USGS API every 15 seconds
-- Calculates geodesic distance from Bangkok to epicenter
-- Sends alerts via Telegram (only for quakes within 2,500 km and magnitude > 5.0)
-- Renders and sends annotated map images using Cartopy
-- Stores previously notified earthquake IDs to prevent duplicates
-- Containerized using a lightweight Alpine-based Python image
+### Features
 
----
+- Asynchronous polling of the USGS Earthquake API with configurable intervals.
+- Geodesic distance calculation to filter earthquakes within a 2,500 km radius of Bangkok.
+- Real-time Telegram alerts for earthquakes meeting a configurable minimum magnitude (default ≥ 4.0).
+- Annotated map images showing epicenter, Bangkok location, and distance.
+- Duplicate event detection to avoid repeated alerts.
+- High-performance event loop using `uvloop`.
+- Dockerized for simple deployment and persistent storage of processed event IDs.
 
-## Setup Instructions
+### Prerequisites
 
-### 1. Clone this repository
+- A Telegram bot token (create via [BotFather](https://t.me/BotFather)).
+- Your Telegram chat ID (message your bot once and retrieve it).
+- Docker and Docker Compose installed on your machine.
+
+### Setup Instructions
+
+1. **Clone the repository**
 
 ```bash
 git clone https://github.com/Thammaros/usgs-telegram-alerts.git
 cd usgs-telegram-alerts
 ```
 
-### 2. Configure Telegram Bot
+2. **Configure environment variables**
 
-Edit `app/config.py` and set your bot token:
+Create a `.env` file in the root directory or export variables directly:
 
-```python
-TELEGRAM_BOT_TOKEN = "your_bot_token_here"
+```bash
+TELEGRAM_BOT_TOKEN="your_bot_token_here"
+TELEGRAM_CHAT_ID="your_chat_id_here"
+FETCH_INTERVAL_SECONDS=15
 ```
 
-> Note: You must message your bot once via Telegram to allow it to read your chat ID automatically.
-
-### 3. Run via Docker Compose
+3. **Run the service with Docker Compose**
 
 ```bash
 docker compose up -d --build
 ```
 
-This command will:
+This will build the container, mount volumes for persistent cache files, and start the monitoring service in the background.
 
-- Build the container image
-- Mount a volume for persistent storage of `last_event.txt` and `chat_id.txt`
-- Start a long-running background service
+### Example `.env` Configuration
 
----
+```env
+TELEGRAM_BOT_TOKEN=123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ
+TELEGRAM_CHAT_ID=987654321
+FETCH_INTERVAL_SECONDS=15
+```
 
-## Runtime Behavior
-
-- Earthquakes are checked every 15 seconds (configurable)
-- Telegram alerts are sent only if:
-  - Magnitude > 5.0
-  - Within 2,500 km of Bangkok
-  - Not previously notified (based on event ID)
-- Map images are generated and sent alongside detailed info (in Thai)
-
----
-
-## Example Output
+### Example Output
 
 ![Example Output](https://github.com/user-attachments/assets/cf795063-3da7-4cb0-989b-1917f3815c12)
 
-> Sample includes annotated epicenter, Bangkok marker, and distance label
+*The alert includes an annotated map pinpointing the earthquake epicenter, a marker for Bangkok, and a label showing the distance between them, along with detailed earthquake information in Thai.*
 
----
+### Stopping and Cleaning Up
 
-## Python Dependencies
-
-- [`cartopy`](https://scitools.org.uk/cartopy/)
-- `matplotlib`
-- `geopy`
-- `requests`
-- `python-telegram-bot`
-
-> System dependencies (GEOS, PROJ, etc.) handled in the Alpine-based Dockerfile.
-
----
-
-## Clean Up
-
-To stop and remove the container and volume:
+To stop the service and remove containers and volumes:
 
 ```bash
 docker compose down -v
@@ -109,21 +79,118 @@ docker compose down -v
 
 ---
 
+## For Developers
+
+### Project Structure
+
+```
+.
+├── docker-compose.yaml     # Docker orchestration and service definition
+├── deploy.sh               # Optional deployment helper script
+└── app/
+    ├── main.py             # Core monitoring loop and event handling
+    ├── config.py           # Configuration variables and constants
+    ├── mapgen.py           # Map generation using Cartopy
+    ├── storage.py          # Persistent storage for event and chat IDs
+    ├── telegram.py         # Telegram bot API integration
+    ├── usgs_api.py         # USGS Earthquake API client
+    ├── logger.py           # Logging setup and configuration
+    ├── requirements.txt    # Python package dependencies
+    └── Dockerfile          # Alpine-based Docker image build instructions
+```
+
+### Local Development
+
+1. **Create and activate a Python virtual environment**
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+2. **Install dependencies**
+
+```bash
+pip install -r app/requirements.txt
+```
+
+3. **Set environment variables**
+
+Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in your terminal or `.env` file.
+
+4. **Run the service locally**
+
+```bash
+python app/main.py
+```
+
+### Testing
+
+- Unit tests can be added in a `tests/` directory (not currently included).
+- Test modules individually by running them or importing functions interactively.
+- Mock external API calls (USGS, Telegram) during testing to avoid real requests.
+
+### Code Style and Contributions
+
+- Follow PEP8 Python style guidelines.
+- Use meaningful variable and function names.
+- Write docstrings for functions and classes.
+- Submit pull requests with clear descriptions and related issue references.
+- Run tests and lint checks before submitting PRs.
+
+### CI/CD Workflow
+
+- The project uses GitHub Actions for continuous integration.
+- On push or pull request, workflows run linting, tests, and build Docker images.
+- Deployments can be automated via the `deploy.sh` script or GitHub Actions.
+
+---
+
+## System Architecture
+
+```mermaid
+flowchart LR
+    A[USGS Earthquake API] <-- HTTP/JSON --> B["main.py\n(Async monitoring loop)"]
+    B <-- calls --> C["usgs_api.py\n(httpx.AsyncClient)"]
+    B <-- sends --> D["telegram.py\n(Telegram Bot API)"]
+    B <-- generates map via thread --> E["mapgen.py\n(Cartopy/Matplotlib)"]
+    B <-- persists last event --> F["storage.py\n(last_event.txt)"]
+    subgraph Docker Container
+        B
+        C
+        D
+        E
+        F
+    end
+    D <-- HTTPS --> G[Telegram Servers]
+```
+
+- `main.py` orchestrates fetching earthquake data, filtering events, generating maps, and sending Telegram alerts.
+- `usgs_api.py` handles USGS API requests asynchronously.
+- `telegram.py` sends messages and images via Telegram Bot API using an env-configured chat ID.
+- `mapgen.py` creates annotated maps using Cartopy.
+- `storage.py` persists the last processed event IDs (no chat ID caching).
+
+- The entire service runs inside a lightweight Alpine-based Docker container managed via Docker Compose.
+
+---
+
 ## License
 
-This project is licensed under the MIT License. See [`LICENSE`](./LICENSE) for details.
+This project is licensed under the MIT License. See the [`LICENSE`](./LICENSE) file for details.
 
 ---
 
 ## Acknowledgements
 
-- USGS Earthquake API
-- Telegram Bot API
-- Cartopy (Geospatial Visualization)
+- [USGS Earthquake API](https://earthquake.usgs.gov/)
+- [Telegram Bot API](https://core.telegram.org/bots/api)
+- [Cartopy](https://scitools.org.uk/cartopy/)
+- [uvloop](https://github.com/MagicStack/uvloop)
+- [httpx](https://www.python-httpx.org/)
 
 ---
 
 ## Author
 
 Maintained by [Thammaros](https://github.com/Thammaros)
-
