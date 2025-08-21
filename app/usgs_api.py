@@ -2,9 +2,40 @@
 import httpx
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from typing import Any, Dict
+from typing import Any, List, Literal, TypedDict
 from config import Config
 from logger import logger
+
+
+# TypedDict definitions for USGS GeoJSON response
+class Properties(TypedDict, total=False):
+    mag: float
+    magType: str
+    place: str
+    time: int
+    alert: str
+    tsunami: int
+    cdi: float
+    mmi: float
+    url: str
+    net: str
+    sources: str
+
+
+class Geometry(TypedDict):
+    type: Literal["Point"]
+    coordinates: List[float]  # [lon, lat, depth_km]
+
+
+class Feature(TypedDict):
+    id: str
+    properties: Properties
+    geometry: Geometry
+
+
+class FeatureCollection(TypedDict):
+    type: Literal["FeatureCollection"]
+    features: List[Feature]
 
 
 class USGSEarthquakeAPI:
@@ -14,7 +45,7 @@ class USGSEarthquakeAPI:
         self.session = httpx.Client(http2=True, timeout=10)
         self.timezone = ZoneInfo(Config.TIMEZONE)
 
-    def query(self, **params: Any) -> Dict:
+    def query(self, **params: Any) -> FeatureCollection:
         params.setdefault("format", "geojson")
         url = f"{self.BASE_URL}query"
 
