@@ -15,6 +15,11 @@ services:
   earthquake-alert:
     <<: *common-config
     build: ./app
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - TIMEZONE=Asia/Bangkok
+      - FETCH_INTERVAL_SECONDS=5
     container_name: usgs-telegram-alert
     command: ["python3", "main.py"]
     volumes:
