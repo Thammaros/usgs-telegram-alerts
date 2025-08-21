@@ -42,17 +42,17 @@ class USGSEarthquakeAPI:
     BASE_URL = "https://earthquake.usgs.gov/fdsnws/event/1/"
 
     def __init__(self):
-        self.session = httpx.Client(http2=True, timeout=10)
+        self.session = httpx.AsyncClient(http2=True, timeout=10)
         self.timezone = ZoneInfo(Config.TIMEZONE)
 
-    def query(self, **params: Any) -> FeatureCollection:
+    async def query(self, **params: Any) -> FeatureCollection:
         params.setdefault("format", "geojson")
         url = f"{self.BASE_URL}query"
 
         try:
-            response = self.session.get(url, params=params)
-            self._handle_response(response)
-            return response.json()
+            resp = await self.session.get(url, params=params)
+            self._handle_response(resp)
+            return resp.json()
 
         except httpx.HTTPStatusError as e:
             logger.error(
@@ -97,3 +97,9 @@ class USGSEarthquakeAPI:
                 ) from e
             else:
                 raise
+
+    async def aclose(self) -> None:
+        try:
+            await self.session.aclose()
+        except Exception:
+            pass

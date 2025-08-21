@@ -1,3 +1,4 @@
 geopy
 Cartopy
 httpx[http2]
+uvloop

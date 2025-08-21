@@ -1,5 +1,8 @@
 # main.py
-import time
+import asyncio
+import uvloop
+from functools import partial
+from typing import Any, Dict
 from config import Config
 from storage import (
     read_last_event_id,
@@ -42,7 +45,9 @@ def format_message(props, coords, quake_time, distance_km) -> str:
         """
 
 
-def handle_new_earthquake(api: USGSEarthquakeAPI, bot: TelegramBot, quake) -> None:
+async def handle_new_earthquake(
+    api: USGSEarthquakeAPI, bot: TelegramBot, quake: Dict[str, Any]
+) -> None:
     event_id = quake["id"]
     props = quake["properties"]
     coords = quake["geometry"]["coordinates"]
@@ -71,51 +76,60 @@ def handle_new_earthquake(api: USGSEarthquakeAPI, bot: TelegramBot, quake) -> No
     logger.info(
         f"Sending notification for earthquake near: {place} ({distance_km:.2f} km from Bangkok)"
     )
-    image_path = generate_cartopy_map(quake_lat, quake_lon, place, distance_km)
-    bot.send_photo(image_path)
-    bot.send_message(format_message(props, coords, quake_time, distance_km))
+    # Offload blocking map generation to a thread
+    image_path = await asyncio.to_thread(
+        generate_cartopy_map, quake_lat, quake_lon, place, distance_km
+    )
+    await bot.send_photo(image_path)
+    await bot.send_message(format_message(props, coords, quake_time, distance_km))
     save_last_event_id(event_id)
     logger.info(f"Event ID {event_id} saved to notified events.")
 
 
-def monitor_loop():
+async def monitor_loop():
     bot = TelegramBot(Config.TELEGRAM_BOT_TOKEN)
     logger.info("Using TELEGRAM_CHAT_ID from environment.")
 
     api = USGSEarthquakeAPI()
     notified_event_ids = read_last_event_id()
-    while True:
-        try:
-            logger.info("Polling USGS Earthquake API for recent events...")
-            result = api.query(minmagnitude=4, orderby="time", limit=10)
+    try:
+        while True:
+            try:
+                logger.info("Polling USGS Earthquake API for recent events...")
+                result = await api.query(minmagnitude=4, orderby="time", limit=10)
+                if result.get("features"):
+                    logger.info(
+                        f"{len(result['features'])} earthquake events received."
+                    )
+                    for quake in result["features"]:
+                        event_id = quake["id"]
 
-            if result.get("features"):
-                logger.info(f"{len(result['features'])} earthquake events received.")
-                for quake in result["features"]:
-                    event_id = quake["id"]
+                        if event_id in notified_event_ids:
+                            logger.info(
+                                f"Event ID {event_id} has already been processed. Skipping."
+                            )
+                            continue
+                        await handle_new_earthquake(api, bot, quake)
+                        notified_event_ids.add(event_id)
+                else:
+                    logger.warning("No earthquake events found in API response.")
 
-                    if event_id in notified_event_ids:
-                        logger.info(
-                            f"Event ID {event_id} has already been processed. Skipping."
-                        )
-                        continue
-                    handle_new_earthquake(api, bot, quake)
-                    notified_event_ids.add(event_id)
-            else:
-                logger.warning("No earthquake events found in API response.")
+            except Exception as e:
+                logger.error(
+                    "An exception occurred during earthquake monitoring loop.",
+                    exc_info=True,
+                )
 
-        except Exception as e:
-            logger.error(
-                "An exception occurred during earthquake monitoring loop.",
-                exc_info=True,
+            logger.info(
+                f"Sleeping for {Config.FETCH_INTERVAL_SECONDS} seconds before next poll."
             )
-
-        logger.info(
-            f"Sleeping for {Config.FETCH_INTERVAL_SECONDS} seconds before next poll."
-        )
-        time.sleep(Config.FETCH_INTERVAL_SECONDS)
+            await asyncio.sleep(Config.FETCH_INTERVAL_SECONDS)
+    finally:
+        await bot.aclose()
+        await api.aclose()
 
 
 if __name__ == "__main__":
     logger.info("USGS Earthquake Monitoring Service started.")
-    monitor_loop()
+    uvloop.install()
+    asyncio.run(monitor_loop())

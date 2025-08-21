@@ -1,5 +1,6 @@
 # telegram.py
 import httpx
+import asyncio
 from logger import logger
 from config import Config
 
@@ -13,48 +14,42 @@ class TelegramBot:
             )
         if not Config.TELEGRAM_CHAT_ID:
             raise ValueError("TELEGRAM_CHAT_ID must be set in environment.")
-        self.session = httpx.Client(timeout=10)
+        self.session = httpx.AsyncClient(timeout=10)
         self.base_url = f"https://api.telegram.org/bot{self.token}"
         self.chat_id = int(Config.TELEGRAM_CHAT_ID)
 
-    def send_photo(self, image_path: str, caption: str = None) -> None:
-
+    async def send_photo(self, image_path: str, caption: str | None = None) -> None:
+        url = f"{self.base_url}/sendPhoto"
         try:
-            url = f"{self.base_url}/sendPhoto"
+            # Opening a small local file is fast; a normal context manager is fine.
             with open(image_path, "rb") as photo:
                 files = {"photo": photo}
                 data = {"chat_id": self.chat_id}
                 if caption:
                     data["caption"] = caption
-                response = self.session.post(url, files=files, data=data)
-                response.raise_for_status()
+                resp = await self.session.post(url, files=files, data=data)
+                resp.raise_for_status()
                 logger.info("Image sent successfully via Telegram.")
         except Exception as e:
             logger.error(f"Failed to send image via Telegram: {e}")
 
-    def send_message(self, message: str) -> None:
-        if not self.chat_id:
-            logger.warning(
-                "Chat ID is not set. Ensure 'load_or_fetch_chat_id()' has been called."
-            )
-            return
-
+    async def send_message(self, message: str) -> None:
+        url = f"{self.base_url}/sendMessage"
+        payload = {
+            "chat_id": self.chat_id,
+            "text": message,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        }
         try:
-            url = f"{self.base_url}/sendMessage"
-            payload = {
-                "chat_id": self.chat_id,
-                "text": message,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            }
-            response = self.session.post(url, json=payload)
-            response.raise_for_status()
+            resp = await self.session.post(url, json=payload)
+            resp.raise_for_status()
             logger.info("Text message sent successfully via Telegram.")
         except Exception as e:
             logger.error(f"Failed to send text message via Telegram: {e}")
 
-    def close(self) -> None:
+    async def aclose(self) -> None:
         try:
-            self.session.close()
+            await self.session.aclose()
         except Exception:
             pass
