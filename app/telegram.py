@@ -1,20 +1,23 @@
 # telegram.py
 import httpx
 from logger import logger
-from storage import read_cached_chat_id, save_cached_chat_id
+from config import Config
 
 
 class TelegramBot:
-    def __init__(self, token: str):
+    def __init__(self, token: str = None):
+        self.token = token or Config.TELEGRAM_BOT_TOKEN
+        if not self.token:
+            raise ValueError(
+                "TELEGRAM_BOT_TOKEN must be set in environment or passed in."
+            )
+        if not Config.TELEGRAM_CHAT_ID:
+            raise ValueError("TELEGRAM_CHAT_ID must be set in environment.")
         self.session = httpx.Client(timeout=10)
-        self.token = token
         self.base_url = f"https://api.telegram.org/bot{self.token}"
-        self.chat_id = None  # Automatically retrieved or loaded
+        self.chat_id = int(Config.TELEGRAM_CHAT_ID)
 
     def send_photo(self, image_path: str, caption: str = None) -> None:
-        if not self.chat_id:
-            logger.warning("Chat ID is not set. Photo message was not sent.")
-            return
 
         try:
             url = f"{self.base_url}/sendPhoto"
@@ -49,61 +52,6 @@ class TelegramBot:
             logger.info("Text message sent successfully via Telegram.")
         except Exception as e:
             logger.error(f"Failed to send text message via Telegram: {e}")
-
-    def get_updates(self, limit: int = 5) -> dict:
-        try:
-            url = f"{self.base_url}/getUpdates"
-            response = self.session.get(url, params={"limit": limit})
-            response.raise_for_status()
-            updates = response.json()
-            logger.info(
-                f"Received {len(updates.get('result', []))} Telegram update(s)."
-            )
-            return updates
-        except Exception as e:
-            logger.error(f"Failed to fetch Telegram updates: {e}")
-            return {}
-
-    def extract_chat_id(self) -> int | None:
-        updates = self.get_updates(limit=1)
-        results = updates.get("result", [])
-
-        if not results:
-            logger.warning(
-                "No Telegram messages received. Please send a message to the bot."
-            )
-            return None
-
-        try:
-            message = results[0]["message"]
-            chat_id = message["chat"]["id"]
-            chat_title = message["chat"].get("title") or message["chat"].get(
-                "username", "Unknown"
-            )
-            self.chat_id = chat_id
-            logger.info(f"Extracted chat ID: {chat_id} ({chat_title})")
-            return chat_id
-        except KeyError as e:
-            logger.error(f"Unexpected response structure while extracting chat ID: {e}")
-            return None
-
-    def load_or_fetch_chat_id(self) -> int | None:
-        cached_chat_id = read_cached_chat_id()
-        if cached_chat_id:
-            logger.info(f"Using cached chat ID: {cached_chat_id}")
-            self.chat_id = cached_chat_id
-            return cached_chat_id
-
-        chat_id = self.extract_chat_id()
-        if chat_id:
-            save_cached_chat_id(chat_id)
-            logger.info(f"Fetched and cached new chat ID: {chat_id}")
-            return chat_id
-
-        logger.error(
-            "Unable to obtain chat ID. Ensure the bot has received at least one message."
-        )
-        return None
 
     def close(self) -> None:
         try:
